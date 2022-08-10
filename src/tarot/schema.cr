@@ -50,7 +50,7 @@ module Tarot
       {% end %}
     end
 
-    macro field(name_and_type, converter = nil, key = nil, hint = nil)
+    macro field(name_and_type, converter = nil, key = nil, hint = nil, emit_null = false)
       {%
         name = name_and_type.var
 
@@ -69,7 +69,8 @@ module Tarot
           type: type,
           converter: converter,
           key: key || name.stringify,
-          hint: hint
+          hint: hint,
+          emit_null: emit_null
         }
       %}
 
@@ -111,7 +112,6 @@ module Tarot
     # this will create GoogleEvent or FacebookEvent.
     macro factory(on, map, fallback = false)
       def self.from(value : JSON::Any, hint = nil)
-        puts "From #{value.inspect} => #{hint}"
         if hash = value.as_h?
           {% if on == "_hint_" %}
             selector = hint
@@ -230,8 +230,11 @@ module Tarot
         {% begin %}
           json.object do
             {% for k, v in KEYS %}
-              json.field {{v[:key]}} do
-                {{k.id}}.to_json(json)
+              v = {{k.id}}
+              if {{v[:emit_null]}} || v
+                json.field {{v[:key]}} do
+                  {{k.id}}.to_json(json)
+                end
               end
             {% end %}
           end
@@ -240,6 +243,14 @@ module Tarot
     end
 
     def initialize(@raw_fields : JSON::Any)
+    end
+
+    def [](field : String)
+      raw_fields[field]
+    end
+
+    def []?(field : String)
+      raw_fields[field]?
     end
 
     def valid?

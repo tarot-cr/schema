@@ -1,12 +1,18 @@
 module Tarot
   class Schema
 
-    module TimestampConverter
+    module TimeConverter
       def self.from(json : JSON::Any?, hint = nil) : Time
-        if (v = json.try &.as_f?) || (v = json.try &.as_i64?)
-          Time.unix_ms((v * 1000).to_i64)
+        v = json.try &.as_s?
+
+        if v
+          begin
+            Time::Format::ISO_8601_DATE_TIME.parse(v)
+          rescue Time::Format::Error
+            raise InvalidConversionError.new("Bad time format")
+          end
         else
-          raise InvalidConversionError.new
+          raise InvalidConversionError.new("Time request a String as input")
         end
       end
     end
@@ -48,6 +54,21 @@ module Tarot
       end
     end
 
+    # UnionConverter will unfold union,
+    # try to convert each elements of the union
+    # and raise errors if none of the union elements are convertible to T.
+    # It can be used directly to create converter which allow union. For example,
+    # if you have a custom converter CustomConverter but your field is a union with
+    # String, you can do:
+    #
+    # ```
+    # field my_field : String|MySpecialType,
+    #       converter: UnionConverter(
+    #                     UniversalConverter(String) | MySpecialTypeConverter
+    #                  )
+    # ```
+    # (note than to convert string you can use UniversalConverter)
+    #
     module UnionConverter(T)
       def self.from(json : JSON::Any?, hint = nil) : T
         {% begin %}
@@ -64,6 +85,14 @@ module Tarot
       end
     end
 
+    # This converter will convert any structure which can be converted
+    # to T.
+    #
+    # Basically, it will unfold Union, generics parameters inside Hash or Array.
+    # It will deals with Schema and Numeric type too.
+    #
+    # This module should not be used directly; it's part of the way Tarot's schema
+    # works.
     module UniversalConverter(T)
       def self.from(json : JSON::Any?, hint = nil) : T
         {% if T.union? %}
@@ -72,6 +101,8 @@ module Tarot
           json.not_nil!
         {% elsif T < Schema %}
           T.from(json, hint)
+        {% elsif T < Number %}
+          NumericConverter(T).from(json, hint)
         {% elsif T < Array %}
           ArrayConverter(UniversalConverter({{T.type_vars.first}})).from(json, hint)
         {% elsif T < Hash %}

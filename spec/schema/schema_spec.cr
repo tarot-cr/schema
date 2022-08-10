@@ -8,8 +8,12 @@ module SchemaSpec
   end
 
   class UnionSchema < Tarot::Schema
-    field nilable : Bool?
+    field nilable : Bool?, emit_null: true
     field complex_union : Array(String) | Hash(String, String)
+  end
+
+  class NumberSchema < Tarot::Schema
+    field number : Float32
   end
 
   class CustomFieldSchema < Tarot::Schema
@@ -79,7 +83,7 @@ module SchemaSpec
       field name : String
     end
 
-    field timestamp : Time, converter: TimestampConverter
+    field timestamp : Time, converter: TimeConverter
     field events : Array(Event | String)?
   end
 
@@ -119,8 +123,14 @@ module SchemaSpec
       it "allows custom content to the structure" do
         custom = CustomFieldSchema.new(custom: {a: {b: true}})
         custom.valid?
-        pp custom
         custom.valid?.should eq(true)
+      end
+    end
+
+    context "number casting" do
+      it "works with casting numbers" do
+        n = NumberSchema.new(number: 1)
+        n.valid?.should eq(true)
       end
     end
 
@@ -184,7 +194,7 @@ module SchemaSpec
         )
         schema.class.should eq(FacebookAdEventSchema)
         schema.valid?.should eq(true)
-        schema.to_json.should eq("")
+        schema.to_json.should eq(%({"type":"Facebook","time":"yesterday","data":{"fb_data":"yes"},"ad_number":1234}))
       end
 
       it "throw errors if factory not found" do
@@ -245,14 +255,14 @@ module SchemaSpec
       it "can parse this complex json" do
         json = <<-JSON
           [{
-            "timestamp": 1660065758,
+            "timestamp": "2022-08-09T17:22:38Z",
             "events": []
           },
           {
-            "timestamp": 1660065760
+            "timestamp": "2022-08-09T17:22:40Z"
           },
           {
-            "timestamp": 1660065758,
+            "timestamp": "2022-08-09T17:22:42Z",
             "events": ["happened", {"name": "created", "metadata": {"some": "cool_stuff"}}]
           }]
         JSON

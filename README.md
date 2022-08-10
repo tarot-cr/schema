@@ -72,17 +72,17 @@ schema.errors # { "content": ["required_field_not_found"] }
 require "tarot/schema"
 
 class MySchema < Tarot::Schema
-  field age : Int64 # By default, json output in 64 bits. See converter for additional usage.
+  field current_age : Int64, key: "currentAge" # camelcase from the json source.
 
   rule age, "must_be_18" do
     age >= 18
   end
 end
 
-schema = MySchema.new(age: 19)
+schema = MySchema.new(currentAge: 19)
 schema.valid? # true
 
-schema = MySchema.new(age: 17)
+schema = MySchema.new(currentAge: 17)
 schema.valid? # false
 schema.errors # {"age": ["must_be_18"]}
 ```
@@ -219,6 +219,9 @@ schema.content # "Lorem"
 
 ### Factory
 
+
+#### Abstract class
+
 In case you want to use abstract schema and different children and instantiate
 on the fly, please use the factory keyword:
 
@@ -254,6 +257,8 @@ user.class # UserSchema
 ```
 
 If the type is not found, this will throw a `Tarot::Schema::SchemaInvalidError`
+
+#### Hint feature
 
 In case the `type` segregator is on another level in your schema, use the hint
 feature:
@@ -291,9 +296,54 @@ schema.record # TeamSchema
 schema.record.as(TeamSchema).name # A wonderful team
 ```
 
+#### Fallback
+
+In case your object is not abstract, you can fallback to
+the main object using `fallback` keyword:
+
+```ruby
+class RecordSchema < Tarot::Schema
+  field id : Int64
+  field type : String
+
+  # assuming this is a Schema, for the children.
+  field attributes : Tarot::Schema
+
+  factory type, {
+    "users" => UserSchema,
+    "teams" => TeamSchema
+  }, fallback: true
+end
+
+class UserSchema < RecordSchema
+  # redefine attributes field
+  schema attributes do
+    field first_name  : String
+    field last_name   : String
+  end
+end
+
+class TeamSchema < RecordSchema
+  # redefine attributes field
+  schema attributes do
+    field name        : String
+  end
+end
+
+schema = RecordSchema.from(
+  id: 123,
+  type: "custom", # no factory for this type.
+  attributes: { some_attributes: true }
+)
+schema.valid? # true
+schema.class # RecordSchema, it fallback to the main class because factory is not found
+schema.attributes # Tarot::Schema. Nothing accessible as-is
+schema.attributes["some_attributes"].as_bool # true
+```
+
 ### Generic
 
-Straight-forward example:
+Generic are working with Tarot's schema:
 
 ```ruby
 class Point(T) < Tarot::Schema
@@ -349,7 +399,7 @@ schema = ArrayPointSchema.from(points: [[1,2], [3,4]])
 
 This start to be a bit tricky, as you need to nest converter into each other.
 
-I would recommend creating an ArrayPoint structure and a converter for this
+I would recommend creating an `ArrayPoint` structure and a converter for this
 structure instead of messing around with this approach.
 
 Also, please note that conversion over Union types and complex structures might
@@ -368,34 +418,9 @@ ingestion can be found in `sample/complex_example.cr`
 This example is interesting as it covers 99% of the features of this shard.
 
 Just copy & paste in your project, change the `require` line to match
-the library, and play around with it to understand how it works !
+the library, and play around with it to understand how it works!
 
 ## Caveats
-
-- Using Numbers that are not Float64 or Int64 requires the use of NumericConverter:
-
-```ruby
-class MySchema < Tarot::Schema
-  # Use of IntXX instead of Int64 will fail with invalid_type.
-  field integer : Int32, converter: NumericConverter(Int32)
-end
-
-```
-
-Because of that, there is also the possibility your schema might fail when it shouldn't:
-
-```ruby
-class MySchema < Tarot::Schema
-  field a_float : Float
-end
-
-schema = MySchema.from({x : 1})
-schema.valid? # false, because x is Int64!
-```
-
-Same here, add `NumericConverter(Float)`.
-
-I should be able to fix those issues shortly.
 
 - For complex structures, you might face some errors which relate to macro
 calls and might be hard to debug.
