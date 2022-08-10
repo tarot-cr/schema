@@ -2,7 +2,21 @@
 
 Schema validation for JSON structure in Crystal. Part of the Tarot project.
 
-Wild features include:
+The idea is to simplify tremendously data consumption and output, in a JSON-centric
+environment, like an API server for example.
+
+After working with Crystal for more than 2 years, I always found data
+management a bit difficult and a long process.
+
+Crystal standard library offers very great tools like JSON::Serializable but
+they are focused on performance and not well suited in dynamic input ingestion,
+like a web server.
+
+Hence I've built Tarot's Schema, the fastest way to describe input and output
+coming from JSON or JSON-like (HTTP  parameters), validate them and consume
+them.
+
+Features are pretty wild and include:
 
 - Type and presence validation + custom rules definition
 - Input from tuples (for creating output structures), hash or json (for input ingestion)
@@ -16,10 +30,12 @@ By design:
 Schemas are read-only.
 Rendering an invalid schema always raises an exception.
 Extra fields which are not defined in the schema are simply ignored.
-They can be accessed through `raw_fields` property.
+Although they can be accessed through `raw_fields` property.
 
-Performance wasn't a big deal when creating this library. Don't expect it
+Performance wasn't a big concern when creating this library. Don't expect it
 to be as fast as `JSON::Serializable`, the focus is on developer experience.
+
+Secure input/output and ship your features quickly!
 
 ## Usage
 
