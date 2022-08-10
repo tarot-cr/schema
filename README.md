@@ -87,6 +87,14 @@ schema.valid? # false
 schema.errors # {"age": ["must_be_18"]}
 ```
 
+Optional fields for `field` helper are:
+- `key` by default the name of the attribute equates to the name of the key in JSON schema. Use this to map the keys differently. Note that `errors` and `raw_fields` are
+protected terms and will require to use another term for the field name.
+- `emit_null` by default `Schema#to_json` won't emit the fields which are `null`. Use `emit_null` to ensure the data is outputted correctly even if null.
+- `hint` Used by nested schema factory. See #factory to learn more about it.
+- `converter` Use a special converter for _non-schema_ complex structure. See the converter section below.
+
+
 ### Creating and reusing a custom rule.
 
 See docs for the list of the existing rules.
