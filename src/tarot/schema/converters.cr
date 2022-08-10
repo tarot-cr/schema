@@ -23,11 +23,11 @@ module Tarot
     end
 
     module ArrayConverter(T)
-      def self.from(json : JSON::Any?, hint = nil) : Array(T)
+      def self.from(json : JSON::Any?, hint = nil)
         case value = json.try &.raw
         when Array
           value.map do |obj|
-            UniversalConverter(T).from(obj, hint)
+            T.from(obj, hint)
           end
         else
           raise InvalidConversionError.new
@@ -36,11 +36,11 @@ module Tarot
     end
 
     module HashConverter(T)
-      def self.from(json : JSON::Any?, hint = nil) : Hash(String, T)
+      def self.from(json : JSON::Any?, hint = nil)
         case value = json.try &.raw
         when Hash
           value.transform_values do |obj|
-            UniversalConverter(T).from(obj, hint)
+            T.from(obj, hint)
           end
         else
           raise InvalidConversionError.new
@@ -73,9 +73,9 @@ module Tarot
         {% elsif T < Schema %}
           T.from(json, hint)
         {% elsif T < Array %}
-          ArrayConverter({{T.type_vars.first}}).from(json, hint)
+          ArrayConverter(UniversalConverter({{T.type_vars.first}})).from(json, hint)
         {% elsif T < Hash %}
-          HashConverter({{T.type_vars[1]}}).from(json, hint)
+          HashConverter(UniversalConverter({{T.type_vars[1]}})).from(json, hint)
         {% else %}
           return json if json.is_a?(T)
 

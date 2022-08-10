@@ -262,7 +262,7 @@ module Tarot
     end
 
     def self.new(**tuple)
-      new(tuple_to_json_any(**tuple))
+      new(to_json_any(**tuple))
     end
 
     def self.new(parser : JSON::PullParser)
@@ -270,7 +270,11 @@ module Tarot
     end
 
     def self.from(**tuple)
-      from(tuple_to_json_any(**tuple))
+      from(to_json_any(**tuple))
+    end
+
+    def self.from(any)
+      from(to_json_any(any))
     end
 
     # :nodoc:
@@ -304,31 +308,36 @@ module Tarot
   end
 end
 
-def tuple_to_json_any(**tuple) : JSON::Any
-  output = {} of String => JSON::Any
-  tuple.each do |k, v|
-    output[k.to_s] = \
-      case v
-      when NamedTuple
-        tuple_to_json_any(**v)
-      when Float
-        JSON::Any.new(v.to_f64)
-      when Number
-        JSON::Any.new(v.to_i64)
-      when Array
-        JSON::Any.new(v.map{ |x|
-          if x.is_a?(NamedTuple)
-            tuple_to_json_any(**x)
-          else
-            JSON::Any.new(x)
-          end
-        })
-      when Hash
-        JSON::Any.new(v.transform_values{ |x| JSON::Any.new(x) })
-      else
-        JSON::Any.new(v)
-      end
-  end
-
-  JSON::Any.new(output)
+# convenient wrapper
+def to_json_any(**tuple) : JSON::Any
+  to_json_any(tuple)
 end
+
+def to_json_any(__data)
+  case __data
+  when NamedTuple
+    output = {} of String => JSON::Any
+
+    __data.each do |k, v|
+      output[k.to_s] = to_json_any(v)
+    end
+
+    JSON::Any.new(output)
+  when Array
+    JSON::Any.new(
+      __data.map{ |x| to_json_any(x) }
+    )
+  when Hash
+    JSON::Any.new(
+      __data.transform_keys(&.to_s)
+            .transform_values{ |x| to_json_any(x) }
+    )
+  when Float
+    JSON::Any.new(__data.to_f64)
+  when Number
+    JSON::Any.new(__data.to_i64)
+  else
+    JSON::Any.new(__data)
+  end
+end
+
