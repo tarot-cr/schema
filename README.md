@@ -278,6 +278,8 @@ user.class # UserSchema
 
 If the type is not found, this will throw a `Tarot::Schema::SchemaInvalidError`
 
+You can fallback to instantiate the mother class, assuming the class is not abstract (see fallback below).
+
 #### Hint feature
 
 In case the `type` segregator is on another level in your schema, use the hint
