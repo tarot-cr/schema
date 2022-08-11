@@ -91,15 +91,27 @@ module Tarot
       %}
     end
 
-    macro schema(name, optional = false)
+    macro schema(name, optional = false, type = :record)
       {% class_name = "#{name.id.stringify.camelcase.id}NestedSchema".id %}
 
       class {{class_name}} < Tarot::Schema
         {{yield}}
       end
 
-      field {{name.id}} : {{class_name}}{{(optional ? "?" : "").id}},
-          converter: {{class_name}}
+      {%
+        type_cast = \
+          if type == :record
+            "#{class_name}"
+          elsif type == :array
+            "Array(#{class_name})"
+          elsif type == :hash
+            "Hash(String, #{class_name})"
+          else
+            raise "type must be :record, :array or :hash"
+          end
+      %}
+
+      field {{name.id}} : {{type_cast.id}}{{(optional ? "?" : "").id}}, converter: {{class_name}}
     end
 
     # Generate a factory for inherited schema, which bind the value of the
