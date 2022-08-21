@@ -46,6 +46,7 @@ module Tarot
         macro finished
           _build_validate
           _build_to_json
+          _build_to_tuple
         end
       {% end %}
     end
@@ -69,6 +70,7 @@ module Tarot
           type: type,
           converter: converter,
           key: key || name.stringify,
+          default: name_and_type.value || nil,
           hint: hint,
           emit_null: emit_null
         }
@@ -120,10 +122,10 @@ module Tarot
     # ```
     #   Event.factory("type", {"google": GoogleEvent, "facebook" : FacebookEvent})
     # ```
-    # Therefore, when using `Event.from(json)`,
+    # Therefore, when using `Event.from_json(json)`,
     # this will create GoogleEvent or FacebookEvent.
     macro factory(on, map, fallback = false)
-      def self.from(value : JSON::Any, hint = nil)
+      def self.from_json(value : JSON::Any, hint = nil)
         if hash = value.as_h?
           {% if on == "_hint_" %}
             selector = hint
@@ -138,7 +140,7 @@ module Tarot
             if self == {{value}}
               {{value}}.make_new(value) # avoid infinite recursion
             else
-              {{value}}.from(value, hint)
+              {{value}}.from_json(value, hint)
             end
           {% end %}
           else
@@ -192,12 +194,17 @@ module Tarot
               converter = v[:converter]
               type = v[:type]
               hint = v[:hint]
+              default = v[:default]
             %}
 
             value = @raw_fields[{{key}}]?
 
             if value.nil? && !nil.is_a?({{type}})
-              add_error({{key}}, "required_field_not_found")
+              {% if default %}
+                @__converted_{{k}} = {{default}}
+              {% else %}
+                add_error({{key}}, "required_field_not_found")
+              {% end %}
             elsif value
               begin
                 {% if hint %}
@@ -205,7 +212,7 @@ module Tarot
                 {% else %}
                 hint = nil
                 {% end %}
-                @__converted_{{k}} = value = {{converter}}.from(value, hint)
+                @__converted_{{k}} = value = {{converter}}.from_json(value, hint)
                 validate_nested({{key}}, value )
               rescue InvalidConversionError
                 add_error({{key}}, "invalid_type")
@@ -233,6 +240,18 @@ module Tarot
         {% end %}
 
         return valid?
+      end
+    end
+
+    macro _build_to_tuple
+      def to_tuple
+        raise SchemaInvalidError.new("the schema is invalid") unless valid?
+
+        {
+          {% for k, v in KEYS %}
+            {{k.id}}: {{k.id}},
+          {% end %}
+        }
       end
     end
 
@@ -292,12 +311,24 @@ module Tarot
       new(JSON::Any.new(parser))
     end
 
-    def self.from(**tuple)
-      from(to_json_any(**tuple))
+    def self.from_json(any)
+      from_json(to_json_any(any))
     end
 
-    def self.from(any)
-      from(to_json_any(any))
+    def self.from_json(any : JSON::Any)
+      new(any)
+    end
+
+    def self.from_json(**tuple)
+      from_json(to_json_any(**tuple))
+    end
+
+    def self.from_json(parser : JSON::PullParser)
+      from_json(JSON::Any.from_json(parser))
+    end
+
+    def self.from_json(string : String)
+      from_json(JSON.parse(string))
     end
 
     # :nodoc:
@@ -317,7 +348,7 @@ module Tarot
       {% end %}
     end
 
-    def self.from(value : JSON::Any, hint = nil)
+    def self.from_json(value : JSON::Any, hint = nil)
       if hash = value.as_h?
         {% unless @type.abstract? %}
           new(value)
@@ -359,6 +390,8 @@ def to_json_any(__data)
     JSON::Any.new(__data.to_f64)
   when Number
     JSON::Any.new(__data.to_i64)
+  when JSON::Any
+    __data
   else
     JSON::Any.new(__data)
   end

@@ -28,6 +28,10 @@ module SchemaSpec
     end
   end
 
+  class DefaultSchema < Tarot::Schema
+    field age : Int32 = 18
+  end
+
   class ValidatorSchema < Tarot::Schema
     field email : String?
 
@@ -113,7 +117,7 @@ module SchemaSpec
         value.should eq(["invalid_type"])
       end
 
-      it "loads from json" do
+      it "loads from_json json" do
         schema = SimpleSchema.from_json(%({"name": "Test", "numeric": 0}))
         schema.valid?.should eq(true)
       end
@@ -125,12 +129,24 @@ module SchemaSpec
         custom.valid?
         custom.valid?.should eq(true)
       end
+
+      it "allow use of to tuple" do
+        custom = CustomFieldSchema.new(custom: {a: {b: true}})
+        custom.to_tuple.class.should eq(NamedTuple(custom: JSON::Any))
+      end
     end
 
     context "number casting" do
       it "works with casting numbers" do
         n = NumberSchema.new(number: 1)
         n.valid?.should eq(true)
+      end
+    end
+
+    context "default schema" do
+      it "allows default fields" do
+        schema = DefaultSchema.new
+        schema.valid?.should eq(true)
       end
     end
 
@@ -173,7 +189,7 @@ module SchemaSpec
 
     context "inherited schema + factory" do
       it "works" do
-        schema = EventSchema.from(
+        schema = EventSchema.from_json(
           type: "Google",
           time: "now",
           google_key: "1234"
@@ -183,7 +199,7 @@ module SchemaSpec
       end
 
       it "nests factories with subtypes" do
-        schema = EventSchema.from(
+        schema = EventSchema.from_json(
           type: "Facebook",
           subtype: "Ad",
           time: "yesterday",
@@ -199,7 +215,7 @@ module SchemaSpec
 
       it "throw errors if factory not found" do
         expect_raises Tarot::Schema::InvalidConversionError do
-          schema = EventSchema.from(
+          schema = EventSchema.from_json(
             type: "unknown",
           )
         end

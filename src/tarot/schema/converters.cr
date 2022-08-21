@@ -2,7 +2,7 @@ module Tarot
   class Schema
 
     module TimeConverter
-      def self.from(json : JSON::Any?, hint = nil) : Time
+      def self.from_json(json : JSON::Any?, hint = nil) : Time
         v = json.try &.as_s?
 
         if v
@@ -18,7 +18,7 @@ module Tarot
     end
 
     module NumericConverter(T)
-      def self.from(json : JSON::Any?, hint = nil) : T
+      def self.from_json(json : JSON::Any?, hint = nil) : T
         case json.raw
         when Number
           T.new(json.raw.as(Number))
@@ -29,11 +29,11 @@ module Tarot
     end
 
     module ArrayConverter(T)
-      def self.from(json : JSON::Any?, hint = nil)
+      def self.from_json(json : JSON::Any?, hint = nil)
         case value = json.try &.raw
         when Array
           value.map do |obj|
-            T.from(obj, hint)
+            T.from_json(obj, hint)
           end
         else
           raise InvalidConversionError.new
@@ -42,11 +42,11 @@ module Tarot
     end
 
     module HashConverter(T)
-      def self.from(json : JSON::Any?, hint = nil)
+      def self.from_json(json : JSON::Any?, hint = nil)
         case value = json.try &.raw
         when Hash
           value.transform_values do |obj|
-            T.from(obj, hint)
+            T.from_json(obj, hint)
           end
         else
           raise InvalidConversionError.new
@@ -70,11 +70,11 @@ module Tarot
     # (note than to convert string you can use UniversalConverter)
     #
     module UnionConverter(T)
-      def self.from(json : JSON::Any?, hint = nil) : T
+      def self.from_json(json : JSON::Any?, hint = nil) : T
         {% begin %}
           {% for type in T.union_types %}
           begin
-            return UniversalConverter({{type}}).from(json, hint)
+            return UniversalConverter({{type}}).from_json(json, hint)
           rescue
             # Do nothing and try next in the union.
           end
@@ -94,19 +94,19 @@ module Tarot
     # This module should not be used directly; it's part of the way Tarot's schema
     # works.
     module UniversalConverter(T)
-      def self.from(json : JSON::Any?, hint = nil) : T
+      def self.from_json(json : JSON::Any?, hint = nil) : T
         {% if T.union? %}
-          UnionConverter(T).from(json, hint)
+          UnionConverter(T).from_json(json, hint)
         {% elsif T < ::JSON::Any %}
           json.not_nil!
         {% elsif T < Schema %}
-          T.from(json, hint)
+          T.from_json(json, hint)
         {% elsif T < Number %}
-          NumericConverter(T).from(json, hint)
+          NumericConverter(T).from_json(json, hint)
         {% elsif T < Array %}
-          ArrayConverter(UniversalConverter({{T.type_vars.first}})).from(json, hint)
+          ArrayConverter(UniversalConverter({{T.type_vars.first}})).from_json(json, hint)
         {% elsif T < Hash %}
-          HashConverter(UniversalConverter({{T.type_vars[1]}})).from(json, hint)
+          HashConverter(UniversalConverter({{T.type_vars[1]}})).from_json(json, hint)
         {% else %}
           return json if json.is_a?(T)
 
