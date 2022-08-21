@@ -9,6 +9,8 @@ module Tarot
     getter  raw_fields : JSON::Any
     getter! errors : Hash(String, Array(String))?
 
+    VERSION = "0.2.0"
+
     KEYS = {} of Nil => Nil
     RULES = [] of Nil
 
