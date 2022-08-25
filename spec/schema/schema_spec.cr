@@ -32,6 +32,10 @@ module SchemaSpec
     field age : Int32 = 18
   end
 
+  class SchemaWithHash < Tarot::Schema
+    field hash : Hash(String, JSON::Any)
+  end
+
   class ValidatorSchema < Tarot::Schema
     field email : String?
 
@@ -117,6 +121,14 @@ module SchemaSpec
         value.should eq(["invalid_type"])
       end
 
+      it "valid! raises error" do
+        schema = SimpleSchema.new(name: "Test", numeric: "String")
+
+        expect_raises(Tarot::Schema::SchemaInvalidError) do
+          schema.valid!
+        end
+      end
+
       it "loads from_json json" do
         schema = SimpleSchema.from_json(%({"name": "Test", "numeric": 0}))
         schema.valid?.should eq(true)
@@ -146,6 +158,13 @@ module SchemaSpec
     context "default schema" do
       it "allows default fields" do
         schema = DefaultSchema.new
+        schema.valid?.should eq(true)
+      end
+    end
+
+    context "schema with hash" do
+      it "allow schema with hash" do
+        schema = SchemaWithHash.new(hash: { x: 1 })
         schema.valid?.should eq(true)
       end
     end

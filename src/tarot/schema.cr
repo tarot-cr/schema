@@ -247,7 +247,7 @@ module Tarot
 
     macro _build_to_tuple
       def to_tuple
-        raise SchemaInvalidError.new("the schema is invalid") unless valid?
+        raise SchemaInvalidError.new(self) unless valid?
 
         {
           {% for k, v in KEYS %}
@@ -259,7 +259,7 @@ module Tarot
 
     macro _build_to_json
       def to_json(json : JSON::Builder)
-        raise SchemaInvalidError.new("the schema is invalid") unless valid?
+        raise SchemaInvalidError.new(self) unless valid?
         {% begin %}
           json.object do
             {% for k, v in KEYS %}
@@ -293,7 +293,7 @@ module Tarot
 
     def valid!
       return true if valid?
-      raise SchemaInvalidError.new
+      raise SchemaInvalidError.new(self)
     end
 
     def field_valid?(field)

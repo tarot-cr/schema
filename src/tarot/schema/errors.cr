@@ -4,6 +4,10 @@ module Tarot
     end
 
     class SchemaInvalidError < Exception
+      getter schema : Tarot::Schema
+
+      def initialize(@schema)
+      end
     end
   end
 end
