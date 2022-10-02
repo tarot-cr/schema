@@ -129,6 +129,11 @@ module SchemaSpec
         end
       end
 
+      it "coerces data" do
+        schema = SimpleSchema.new(name: "Test", numeric: "1")
+        schema.valid?.should eq(true)
+      end
+
       it "loads from_json json" do
         schema = SimpleSchema.from_json(%({"name": "Test", "numeric": 0}))
         schema.valid?.should eq(true)

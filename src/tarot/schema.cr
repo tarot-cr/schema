@@ -53,7 +53,7 @@ module Tarot
       {% end %}
     end
 
-    macro field(name_and_type, converter = nil, key = nil, hint = nil, emit_null = false)
+    macro field(name_and_type, converter = nil, key = nil, hint = nil, emit_null = false, coercive = false)
       {%
         name = name_and_type.var
 
@@ -72,6 +72,7 @@ module Tarot
           type: type,
           converter: converter,
           key: key || name.stringify,
+          coercive: coercive,
           default: name_and_type.value || nil,
           hint: hint,
           emit_null: emit_null
@@ -197,6 +198,7 @@ module Tarot
               type = v[:type]
               hint = v[:hint]
               default = v[:default]
+              coercive = v[:coercive]
             %}
 
             value = @raw_fields[{{key}}]?
@@ -214,7 +216,8 @@ module Tarot
                 {% else %}
                 hint = nil
                 {% end %}
-                @__converted_{{k}} = value = {{converter}}.from_json(value, hint)
+
+                @__converted_{{k}} = value = {{converter}}.from_json(value, hint, {{coercive}})
                 validate_nested({{key}}, value )
               rescue InvalidConversionError
                 add_error({{key}}, "invalid_type")
@@ -350,7 +353,7 @@ module Tarot
       {% end %}
     end
 
-    def self.from_json(value : JSON::Any, hint = nil)
+    def self.from_json(value : JSON::Any, hint = nil, coercive = false)
       if hash = value.as_h?
         {% unless @type.abstract? %}
           new(value)

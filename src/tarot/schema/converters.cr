@@ -2,7 +2,7 @@ module Tarot
   class Schema
 
     module TimeConverter
-      def self.from_json(json : JSON::Any?, hint = nil) : Time
+      def self.from_json(json : JSON::Any?, hint = nil, coercive = false) : Time
         v = json.try &.as_s?
 
         if v
@@ -18,18 +18,25 @@ module Tarot
     end
 
     module NumericConverter(T)
-      def self.from_json(json : JSON::Any?, hint = nil) : T
-        case json.raw
+      def self.from_json(json : JSON::Any?, hint = nil, coercive = false) : T
+        case x = json.raw
         when Number
-          T.new(json.raw.as(Number))
-        else
-          raise InvalidConversionError.new
+          return T.new(x)
+        when String
+          case x
+          when /\A[0-9]+\z/
+            return T.new x.to_i64
+          when /\A[0-9]+\.[0-9]+\z/
+            return T.new x.to_f64
+          end
         end
+
+        raise InvalidConversionError.new
       end
     end
 
     module ArrayConverter(T)
-      def self.from_json(json : JSON::Any?, hint = nil)
+      def self.from_json(json : JSON::Any?, hint = nil, coercive = false)
         case value = json.try &.raw
         when Array
           value.map do |obj|
@@ -42,7 +49,7 @@ module Tarot
     end
 
     module HashConverter(T)
-      def self.from_json(json : JSON::Any?, hint = nil)
+      def self.from_json(json : JSON::Any?, hint = nil, coercive = false)
         case value = json.try &.raw
         when Hash
           value.transform_values do |obj|
@@ -70,7 +77,7 @@ module Tarot
     # (note than to convert string you can use UniversalConverter)
     #
     module UnionConverter(T)
-      def self.from_json(json : JSON::Any?, hint = nil) : T
+      def self.from_json(json : JSON::Any?, hint = nil, coercive = false) : T
         {% begin %}
           {% for type in T.union_types %}
           begin
@@ -94,7 +101,7 @@ module Tarot
     # This module should not be used directly; it's part of the way Tarot's schema
     # works.
     module UniversalConverter(T)
-      def self.from_json(json : JSON::Any?, hint = nil) : T
+      def self.from_json(json : JSON::Any?, hint = nil, coercive = false) : T
         {% if T.union? %}
           UnionConverter(T).from_json(json, hint)
         {% elsif T < ::JSON::Any %}
